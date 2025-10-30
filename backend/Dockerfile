@@ -1,8 +1,21 @@
+# ==== Backend Dockerfile (Render) ====
 FROM python:3.11-slim
+
 WORKDIR /app
+
+# منع إنشاء .pyc وتسريب البافر
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-COPY requirements.txt ./
+
+# المتطلبات
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# نسخ بقية ملفات الباكند
 COPY . .
-CMD ["gunicorn","app:app","-b","0.0.0.0:${PORT}","--workers","2","--threads","4","--timeout","120"]
+
+# Render يضبط env PORT تلقائيًا – نحن نقرأه داخل app.py
+EXPOSE 8000
+
+# شغّل Flask مباشرة ليستخدم PORT من الـ env
+CMD ["python", "app.py"]

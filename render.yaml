@@ -6,15 +6,15 @@ services:
     autoDeploy: true
     dockerContext: ./backend
     healthCheckPath: /
-  - type: static
+
+  - type: web           # ← بدل static إلى web
     name: omniflow-frontend
+    env: static
     plan: free
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
       - key: VITE_BACKEND_URL
         fromService:
-          name: omniflow-backend
           type: web
-          property: url
-    srcDir: frontend
+          name: omniflow-backend

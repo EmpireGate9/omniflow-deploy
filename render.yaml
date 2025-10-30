@@ -7,10 +7,18 @@ services:
     dockerContext: ./backend
     healthCheckPath: /
 
+<<<<<<< HEAD
   - type: web           # ← بدل static إلى web
+=======
+  - type: static_site
+>>>>>>> 633d0ae (fix: render blueprint (static_site + fromService.url))
     name: omniflow-frontend
     env: static
     plan: free
+<<<<<<< HEAD
+=======
+    srcDir: frontend
+>>>>>>> 633d0ae (fix: render blueprint (static_site + fromService.url))
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
@@ -18,3 +26,7 @@ services:
         fromService:
           type: web
           name: omniflow-backend
+<<<<<<< HEAD
+=======
+          property: url
+>>>>>>> 633d0ae (fix: render blueprint (static_site + fromService.url))

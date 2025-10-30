@@ -7,10 +7,10 @@ services:
     dockerContext: ./backend
     healthCheckPath: /
 
-  - type: web          # ← النوع Web
+  - type: web
     name: omniflow-frontend
-    env: static        # ← بيئة Static
+    env: node
     plan: free
-    srcDir: frontend
     buildCommand: npm install && npm run build
-    staticPublishPath: dist
+    startCommand: npx serve -s dist
+    rootDir: ./frontend

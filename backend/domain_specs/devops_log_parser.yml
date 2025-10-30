@@ -1,0 +1,7 @@
+code: devops_log_parser
+name: تحليل سجلات DevOps
+version: 0.1.0
+description: يحصي الأخطاء والتحذيرات وأكثر الأسطر تكرارًا.
+inputs:
+  - key: log_text
+    type: string

@@ -1,0 +1,7 @@
+code: programming_code_quality
+name: جودة الشفرة (برمجة)
+version: 0.1.0
+description: إحصاءات وعدّ TODO/FIXME ودرجة عامة.
+inputs:
+  - key: files
+    type: array

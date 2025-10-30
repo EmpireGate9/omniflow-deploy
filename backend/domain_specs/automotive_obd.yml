@@ -1,0 +1,7 @@
+code: automotive_obd
+name: سيارات OBD-II
+version: 0.1.0
+description: تفسير أكواد أعطال شائعة.
+inputs:
+  - key: codes
+    type: array

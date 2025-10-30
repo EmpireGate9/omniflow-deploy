@@ -1,0 +1,7 @@
+code: cybersecurity_indicator_scan
+name: مسح مؤشرات الاختراق (IOC)
+version: 0.1.0
+description: يلتقط IP/دومينات/هاشات من نص.
+inputs:
+  - key: text
+    type: string

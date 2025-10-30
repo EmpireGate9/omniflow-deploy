@@ -1,0 +1,7 @@
+code: medical_labs
+name: مختبرات طبية
+version: 0.1.0
+description: تمييز القيم خارج المدى (تعليمي فقط).
+inputs:
+  - key: labs
+    type: array

@@ -1,0 +1,9 @@
+code: data_etl_validator
+name: فحص صحة بيانات ETL
+version: 0.1.0
+description: يتحقق من الحقول المطلوبة داخل سجلات JSON.
+inputs:
+  - key: schema
+    type: object
+  - key: records
+    type: array

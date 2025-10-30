@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: omniflow-backend
+    env: docker
+    plan: free
+    autoDeploy: true
+    dockerContext: ./backend
+    healthCheckPath: /
+  - type: static
+    name: omniflow-frontend
+    plan: free
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_BACKEND_URL
+        fromService:
+          name: omniflow-backend
+          type: web
+          property: url
+    srcDir: frontend

@@ -1,0 +1,9 @@
+code: programming_issue_triage
+name: تصنيف التذاكر
+version: 0.1.0
+description: أولوية ووسوم حسب النص.
+inputs:
+  - key: title
+    type: string
+  - key: body
+    type: string

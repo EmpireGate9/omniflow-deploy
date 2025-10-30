@@ -1,0 +1,13 @@
+code: construction
+name: المقاولات
+version: 0.1.0
+description: تقدير مواد/مدة/تكلفة (تقريبي تعليمي).
+inputs:
+  - key: site_area_m2
+    type: number
+  - key: floors
+    type: integer
+  - key: structure
+    type: string
+  - key: finish_level
+    type: string

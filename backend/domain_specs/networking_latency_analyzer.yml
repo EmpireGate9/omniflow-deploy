@@ -1,0 +1,7 @@
+code: networking_latency_analyzer
+name: تحليل كمون الشبكة
+version: 0.1.0
+description: المتوسط وp95 وp99.
+inputs:
+  - key: latencies_ms
+    type: array

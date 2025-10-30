@@ -5,12 +5,13 @@ services:
     plan: free
     autoDeploy: true
     dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
     healthCheckPath: /
 
   - type: web
     name: omniflow-frontend
     env: node
     plan: free
+    rootDir: ./frontend
     buildCommand: npm install && npm run build
     startCommand: npx serve -s dist
-    rootDir: ./frontend

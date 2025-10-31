@@ -65,14 +65,31 @@ CORS(app)
 @app.get("/")
 def home():
     return jsonify({
-        "ok": True, "service": "omniflow-unified",
+        "ok": True,
+        "service": "omniflow-unified",
         "endpoints": ["/api/analyze", "/api/artifacts", "/api/domains"]
     })
 
+# ✅ إصلاح مشكلة تحميل المجالات
 @app.get("/api/domains")
 def domains():
-    # يرجّع قائمة المجالات المتوفرة (إن وُجدت)، وإلا قائمة فاضية
-    return jsonify([{"code": code, "name": code} for code in sorted(DOMAIN_ANALYZERS.keys())])
+    # إذا فيه Plugins حقيقية
+    if DOMAIN_ANALYZERS:
+        return jsonify([
+            {
+                "code": code,
+                "name": code.capitalize(),
+                "description": f"Domain: {code}"
+            } for code in sorted(DOMAIN_ANALYZERS.keys())
+        ])
+    
+    # إذا ما فيه → رجع قائمة افتراضية للواجهة
+    return jsonify([
+        {"code": "general", "name": "General", "description": "مساعد عام للذكاء الاصطناعي"},
+        {"code": "construction", "name": "Construction", "description": "تحليل مشاريع البناء والمواد والتكلفة"},
+        {"code": "medical", "name": "Medical", "description": "تحليل التقارير الطبية"},
+        {"code": "cars", "name": "Cars", "description": "تشخيص أعطال السيارات وأكواد OBD"},
+    ])
 
 @app.get("/api/artifacts")
 def artifacts():
@@ -86,7 +103,7 @@ def artifacts():
         out = [dict(r) for r in cur.fetchall()]
     return jsonify(out)
 
-# ========= أدوات استخراج الملفات =========
+# ========= أدوات قراءة الملفات =========
 def extract_pdf(file):
     reader = PdfReader(file.stream)
     texts = []
@@ -118,14 +135,13 @@ def extract_xlsx(file):
         headers = None
         for i, row in enumerate(ws.iter_rows(values_only=True)):
             if i == 0:
-                headers = [str(x) if x is not None else "" for x in row]
+                headers = [str(x) if x else "" for x in row]
                 continue
-            rows.append({headers[j] if j < len(headers) else f"col{j}": (row[j] if j < len(row) else None)
-                         for j in range(len(headers))})
+            rows.append({headers[j]: (row[j]) for j in range(len(headers))})
         out[s] = rows[:200]
     return out
 
-# ========= مساعدو الذكاء =========
+# ========= ذكاء نص / رؤية =========
 def ai_text(msg):
     resp = client.chat.completions.create(
         model=TEXT_MODEL,
@@ -145,7 +161,7 @@ def ai_vision(file, prompt):
         messages=[
             {"role":"system","content":"You are a vision assistant. Describe and analyze precisely."},
             {"role":"user","content":[
-                {"type":"text","text": prompt or "حلل محتوى الصورة وقدّم معلومات دقيقة."},
+                {"type":"text","text": prompt or "حلل محتوى الصورة"},
                 {"type":"image_url","image_url":{"url": f"data:{mime};base64,{b64}"}}
             ]}
         ]
@@ -156,10 +172,10 @@ def ai_vision(file, prompt):
 @app.post("/api/analyze")
 def analyze():
     if client is None:
-        return jsonify({"error":"OPENAI_API_KEY is missing on server"}), 500
+        return jsonify({"error":"OPENAI_API_KEY is missing"}), 500
 
     content_type = request.headers.get("Content-Type","")
-    user_hint = request.form.get("prompt") or request.args.get("prompt") or ""
+    user_hint = request.form.get("prompt") or ""
 
     # ---- ملفات ----
     if content_type.startswith("multipart/form-data"):
@@ -167,102 +183,74 @@ def analyze():
         if not f:
             return jsonify({"error":"no file uploaded"}), 400
 
-        mt = (f.mimetype or "").lower()
         name = f.filename or ""
 
-        # صورة → Vision
-        if mt.startswith("image/"):
-            try:
-                reply = ai_vision(f, user_hint)
-                log_artifact(domain="vision", kind="image", payload_obj={"name": name, "reply": reply})
-                return jsonify({"kind":"image","reply": reply})
-            except Exception as e:
-                return jsonify({"error": f"vision-failed: {e}"}), 500
+        # صورة
+        if f.mimetype.startswith("image/"):
+            reply = ai_vision(f, user_hint)
+            log_artifact("vision", "image", {"file": name, "reply": reply})
+            return jsonify({"kind":"image","reply": reply})
 
         # PDF
         if name.lower().endswith(".pdf"):
-            try:
-                text = extract_pdf(f)[:8000]
-                reply = ai_text(f"{user_hint or 'حلل هذا الملف'}:\n\n{text}")
-                log_artifact(domain="doc", kind="pdf", payload_obj={"name": name, "summary": reply})
-                return jsonify({"kind":"pdf","reply": reply})
-            except Exception as e:
-                return jsonify({"error": f"pdf-parse-failed: {e}"}), 500
+            text = extract_pdf(f)[:8000]
+            reply = ai_text(f"{user_hint or 'حلل هذا الملف'}:\n\n{text}")
+            log_artifact("pdf", "doc", {"file": name, "reply": reply})
+            return jsonify({"kind":"pdf","reply": reply})
 
         # DOCX
         if name.lower().endswith(".docx"):
-            try:
-                text = extract_docx(f)[:8000]
-                reply = ai_text(f"{user_hint or 'حلل هذا المستند'}:\n\n{text}")
-                log_artifact(domain="doc", kind="docx", payload_obj={"name": name, "summary": reply})
-                return jsonify({"kind":"docx","reply": reply})
-            except Exception as e:
-                return jsonify({"error": f"docx-parse-failed: {e}"}), 500
+            text = extract_docx(f)[:8000]
+            reply = ai_text(f"{user_hint or 'حلل هذا المستند'}:\n\n{text}")
+            log_artifact("docx", "doc", {"file": name, "reply": reply})
+            return jsonify({"kind":"docx","reply": reply})
 
         # CSV
         if name.lower().endswith(".csv"):
-            try:
-                rows = extract_csv(f)[:200]
-                reply = ai_text(f"{user_hint or 'حلل هذا الجدول'}:\n\n{rows}")
-                log_artifact(domain="table", kind="csv", payload_obj={"name": name, "rows": len(rows), "summary": reply})
-                return jsonify({"kind":"csv","rows": len(rows),"reply": reply})
-            except Exception as e:
-                return jsonify({"error": f"csv-parse-failed: {e}"}), 500
+            rows = extract_csv(f)[:200]
+            reply = ai_text(f"حلل البيانات التالية:\n\n{rows}")
+            log_artifact("csv", "table", {"file": name, "reply": reply})
+            return jsonify({"kind":"csv","reply": reply})
 
         # XLSX
         if name.lower().endswith(".xlsx"):
-            try:
-                table = extract_xlsx(f)
-                if isinstance(table, dict) and "error" in table:
-                    return jsonify({"kind":"xlsx","error": table["error"]}), 500
-                reply = ai_text(f"{user_hint or 'حلل هذا الملف'}:\n\n{json.dumps(table, ensure_ascii=False)[:8000]}")
-                log_artifact(domain="table", kind="xlsx", payload_obj={"name": name, "summary": reply})
-                return jsonify({"kind":"xlsx","reply": reply})
-            except Exception as e:
-                return jsonify({"error": f"xlsx-parse-failed: {e}"}), 500
+            rows = extract_xlsx(f)
+            reply = ai_text(f"حلل البيانات التالية:\n\n{json.dumps(rows)[:8000]}")
+            log_artifact("xlsx", "table", {"file": name, "reply": reply})
+            return jsonify({"kind":"xlsx","reply": reply})
 
-        return jsonify({"error": f"unsupported file type: {mt or name}"}), 400
+        return jsonify({"error":"unsupported file"}), 400
 
     # ---- JSON / نص ----
     data = request.json or {}
     domain  = data.get("domain")
     payload = data.get("payload")
 
-    # نص حر
+    # نص عادي
     if isinstance(payload, str):
         text = payload.strip()
-        # حاول نفهم إن كان نص JSON
         try:
             as_json = json.loads(text)
-            payload = as_json  # استمر كـ JSON
-        except Exception:
-            # دردشة عامة
-            try:
-                reply = ai_text(text)
-                log_artifact(domain="chat", kind="message", payload_obj={"q": text, "a": reply})
-                return jsonify({"result": reply})
-            except Exception as e:
-                return jsonify({"error": f"chat-failed: {e}"}), 500
-
-    # JSON + domain → محلل المجالات (إذا موجود)
-    if isinstance(payload, dict) and domain in DOMAIN_ANALYZERS:
-        try:
-            result = DOMAIN_ANALYZERS[domain](payload)
-            log_artifact(domain=domain, kind="analysis_result", payload_obj=result)
-            return jsonify(result)
-        except Exception as e:
-            return jsonify({"error": f"domain-analyzer-failed: {e}"}), 500
-
-    # JSON بدون domain → تحليل عام
-    if isinstance(payload, dict):
-        try:
-            reply = ai_text(f"حلّل هذا JSON وقدّم نقاط مهمة وإجراءات:\n\n{json.dumps(payload, ensure_ascii=False)[:8000]}")
-            log_artifact(domain="json", kind="summary", payload_obj={"input": payload, "summary": reply})
+            payload = as_json
+        except:
+            reply = ai_text(text)
+            log_artifact("chat", "message", {"q": text, "a": reply})
             return jsonify({"result": reply})
-        except Exception as e:
-            return jsonify({"error": f"json-analyze-failed: {e}"}), 500
 
-    return jsonify({"error":"invalid payload"}), 400
+    # JSON + مجال
+    if isinstance(payload, dict) and domain in DOMAIN_ANALYZERS:
+        result = DOMAIN_ANALYZERS[domain](payload)
+        log_artifact(domain, "analysis", result)
+        return jsonify(result)
+
+    # JSON بدون مجال
+    if isinstance(payload, dict):
+        reply = ai_text(f"حلل هذا JSON:\n\n{json.dumps(payload)[:8000]}")
+        log_artifact("json", "summary", {"input": payload, "reply": reply})
+        return jsonify({"result": reply})
+
+    return jsonify({"error":"invalid input"}), 400
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
